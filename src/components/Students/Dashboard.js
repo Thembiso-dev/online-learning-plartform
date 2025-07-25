@@ -46,7 +46,8 @@ function StudentDashboard() {
     <div className="dashboard container">
       <header className="dashboard-header">
         <h1>Student Dashboard</h1>
-        <p>Welcome, {currentUser?.email}</p>
+        <p>Welcome, {currentUser?.displayName || currentUser?.email}</p>
+
       </header>
       
       <nav className="dashboard-nav">

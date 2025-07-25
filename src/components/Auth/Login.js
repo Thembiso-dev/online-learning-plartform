@@ -1,53 +1,58 @@
-import { useState } from 'react';
-import { auth, db } from '../../firebase';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from "react";
+import { auth, db } from "../../firebase";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { useNavigate, Link } from "react-router-dom";
 
 function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetEmailSent, setResetEmailSent] = useState(false); // To show reset email sent message
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const navigate = useNavigate();
+
+  const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    
+    setError("");
+    setResetEmailSent(false);
+
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      setError('');
-      setLoading(true);
-      
-      // Sign in with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      
-      // Get user role from Firestore
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const userRole = userData.role;
-        
-        // Navigate to appropriate dashboard based on role
+        const userRole = userDoc.data().role || "student"; // fallback role if missing
         navigate(`/${userRole}/dashboard`);
       } else {
-        throw new Error('User profile not found. Please contact administrator.');
+        setError("User profile not found. Contact administrator.");
       }
     } catch (err) {
-      console.error('Login error:', err);
-      
-      // Provide user-friendly error messages
-      if (err.code === 'auth/user-not-found') {
-        setError('No account found with this email address.');
-      } else if (err.code === 'auth/wrong-password') {
-        setError('Incorrect password. Please try again.');
-      } else if (err.code === 'auth/invalid-email') {
-        setError('Invalid email address format.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed login attempts. Please try again later.');
+      console.error("Login error:", err);
+
+      if (err.code === "auth/user-not-found") {
+        setError("No account found with this email address.");
+      } else if (err.code === "auth/wrong-password") {
+        setError("Incorrect password.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Invalid email address.");
+      } else if (err.code === "auth/too-many-requests") {
+        setError("Too many failed attempts. Try again later.");
       } else {
-        setError(err.message || 'Failed to log in. Please try again.');
+        setError("Failed to log in. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -55,21 +60,21 @@ function Login() {
   }
 
   async function handleForgotPassword() {
-    if (!email) {
-      setError('Please enter your email address to reset the password.');
+    setError("");
+    setResetEmailSent(false);
+
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address to reset password.");
       return;
     }
 
+    setLoading(true);
     try {
-      setError('');
-      setLoading(true);
-
-      // Send password reset email via Firebase
       await sendPasswordResetEmail(auth, email);
-      setResetEmailSent(true); // Show success message
+      setResetEmailSent(true);
     } catch (err) {
-      console.error('Error sending password reset email:', err);
-      setError('Failed to send password reset email. Please try again.');
+      console.error("Password reset error:", err);
+      setError("Failed to send password reset email. Try again.");
     } finally {
       setLoading(false);
     }
@@ -79,46 +84,53 @@ function Login() {
     <div className="auth-container">
       <div className="auth-card">
         <h2>Log In</h2>
-        {error && <div className="error-message">{error}</div>}
-        {resetEmailSent && <div className="success-message">Password reset email sent! Please check your inbox.</div>}
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input 
-              id="email"
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
-              disabled={loading}
-              placeholder="Enter your email"
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input 
-              id="password"
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              required 
-              disabled={loading}
-              placeholder="Enter your password"
-            />
-          </div>
-          <button type="submit" disabled={loading} className="auth-button">
-            {loading ? 'Logging In...' : 'Log In'}
+
+        {error && <div className="error-message" style={{ color: "red", marginBottom: "1rem" }}>{error}</div>}
+        {resetEmailSent && <div className="success-message" style={{ color: "green", marginBottom: "1rem" }}>
+          Password reset email sent! Check your inbox.
+        </div>}
+
+        <form onSubmit={handleSubmit} noValidate>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+            autoComplete="email"
+            aria-invalid={error.toLowerCase().includes("email") ? "true" : "false"}
+            style={error.toLowerCase().includes("email") ? { borderColor: "red" } : {}}
+            required
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+            autoComplete="current-password"
+            aria-invalid={error.toLowerCase().includes("password") ? "true" : "false"}
+            style={error.toLowerCase().includes("password") ? { borderColor: "red" } : {}}
+            required
+          />
+
+          <button type="submit" disabled={loading}>
+            {loading ? "Logging In..." : "Log In"}
           </button>
         </form>
 
-        {/* Forgot Password link */}
-        <p className="forgot-password-link">
-          <button onClick={handleForgotPassword} disabled={loading}>
+        <p>
+          <button
+            onClick={handleForgotPassword}
+            disabled={loading}
+            style={{ cursor: "pointer", background: "none", border: "none", color: "blue", textDecoration: "underline", padding: 0 }}
+          >
             Forgot Password?
           </button>
         </p>
 
-        <p className="auth-link">
+        <p>
           Don't have an account? <Link to="/signup">Sign Up</Link>
         </p>
       </div>
