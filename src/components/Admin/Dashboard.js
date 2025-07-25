@@ -55,7 +55,7 @@ function AdminDashboard() {
         description: doc.data().description || '',
         lecturerId: doc.data().lecturerId || '',
         studentsEnrolled: doc.data().studentsEnrolled || [],
-        status: doc.data().status || 'active',
+        status: doc.data().status || 'Pending',
         createdAt: doc.data().createdAt?.toDate?.()?.toLocaleDateString() || 
                   doc.data().createdAt?.toLocaleDateString?.() || 
                   new Date().toLocaleDateString()
@@ -70,7 +70,7 @@ function AdminDashboard() {
           name: doc.data().displayName || doc.data().name || doc.data().email?.split('@')[0] || 'Unknown User',
           email: doc.data().email || 'No email',
           role: doc.data().role || 'student',
-          status: doc.data().status || 'active',
+          status: doc.data().status || 'Pending',
           department: doc.data().department || 'Not specified'
         }));
         setUsers(usersData);
@@ -114,7 +114,7 @@ function AdminDashboard() {
         lecturerId: selectedLecturer,
         createdAt: new Date(),
         studentsEnrolled: [],
-        status: 'active'
+        status: 'Pending'
       };
       
       const docRef = await addDoc(collection(db, 'courses'), courseData);
@@ -151,8 +151,8 @@ function AdminDashboard() {
   async function toggleCourseStatus(courseId) {
     try {
       const course = courses.find(c => c.id === courseId);
-      const newStatus = course.status === 'active' ? 'inactive' : 'active';
-      
+      const newStatus = course.status === 'Pending' ? 'Rejected' : 'Approved';
+
       await updateDoc(doc(db, 'courses', courseId), {
         status: newStatus
       });
@@ -216,7 +216,7 @@ function AdminDashboard() {
 
   async function toggleUserStatus(userId) {
     const user = users.find(u => u.id === userId);
-    const newStatus = user.status === 'active' ? 'suspended' : 'active';
+    const newStatus = user.status === 'Pending' ? 'suspended' : 'activated';
     
     if (window.confirm(`Are you sure you want to ${newStatus === 'suspended' ? 'suspend' : 'activate'} this user?`)) {
       try {
@@ -435,7 +435,7 @@ function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          course.status === 'active' 
+                          course.status === 'Pending' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
@@ -457,10 +457,10 @@ function AdminDashboard() {
                           </button>
                           <button
                             onClick={() => toggleCourseStatus(course.id)}
-                            className={`p-1 ${course.status === 'active' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
-                            title={course.status === 'active' ? 'Deactivate' : 'Activate'}
+                            className={`p-1 ${course.status === 'Pending' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
+                            title={course.status === 'Pending' ? 'Rejected' : 'Approved'}
                           >
-                            {course.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                            {course.status === 'Pending' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={() => deleteCourse(course.id)}
@@ -516,7 +516,7 @@ function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.status === 'active' 
+                            user.status === 'Pending' 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-red-100 text-red-800'
                           }`}>
@@ -527,10 +527,10 @@ function AdminDashboard() {
                           <div className="flex space-x-2">
                             <button
                               onClick={() => toggleUserStatus(user.id)}
-                              className={`p-1 ${user.status === 'active' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
-                              title={user.status === 'active' ? 'Suspend user' : 'Activate user'}
+                              className={`p-1 ${user.status === 'Pending' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
+                              title={user.status === 'Pending' ? 'Suspend user' : 'Activate user'}
                             >
-                              {user.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                              {user.status === 'Pending' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                             </button>
                             <button
                               onClick={() => deleteUser(user.id)}
@@ -616,7 +616,7 @@ function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          course.status === 'active' 
+                          course.status === 'Pending' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
@@ -674,7 +674,7 @@ function AdminDashboard() {
                             </td>
                             <td className="px-6 py-4">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                student?.status === 'active' 
+                                student?.status === 'Pending' 
                                   ? 'bg-green-100 text-green-800' 
                                   : 'bg-red-100 text-red-800'
                               }`}>

@@ -4,14 +4,14 @@ import { User, BookOpen, Trash2, Edit3, UserCheck, UserX, Plus } from 'lucide-re
 // Mock Firebase functions for demo - replace with your actual Firebase imports
 const mockDb = {
   courses: [
-    { id: '1', name: 'Introduction to Programming', lecturerId: 'lec1', lecturerName: 'Dr. Smith', status: 'active', createdAt: '2024-01-15' },
-    { id: '2', name: 'Data Structures', lecturerId: 'lec2', lecturerName: 'Prof. Johnson', status: 'active', createdAt: '2024-02-01' },
-    { id: '3', name: 'Web Development', lecturerId: 'lec1', lecturerName: 'Dr. Smith', status: 'inactive', createdAt: '2024-01-20' }
+    { id: '1', name: 'Introduction to Programming', lecturerId: 'lec1', lecturerName: 'Dr. Smith', status: 'Pending', createdAt: '2024-01-15' },
+    { id: '2', name: 'Data Structures', lecturerId: 'lec2', lecturerName: 'Prof. Johnson', status: 'Pending', createdAt: '2024-02-01' },
+    { id: '3', name: 'Web Development', lecturerId: 'lec1', lecturerName: 'Dr. Smith', status: 'Rejected', createdAt: '2024-01-20' }
   ],
   users: [
-    { id: 'lec1', name: 'Dr. Smith', email: 'smith@university.edu', role: 'lecturer', status: 'active', department: 'Computer Science' },
-    { id: 'lec2', name: 'Prof. Johnson', email: 'johnson@university.edu', role: 'lecturer', status: 'active', department: 'Computer Science' },
-    { id: 'std1', name: 'Alice Brown', email: 'alice@student.edu', role: 'student', status: 'active', department: 'Computer Science' },
+    { id: 'lec1', name: 'Dr. Smith', email: 'smith@university.edu', role: 'lecturer', status: 'Pending', department: 'Computer Science' },
+    { id: 'lec2', name: 'Prof. Johnson', email: 'johnson@university.edu', role: 'lecturer', status: 'Pending', department: 'Computer Science' },
+    { id: 'std1', name: 'Alice Brown', email: 'alice@student.edu', role: 'student', status: 'Pending', department: 'Computer Science' },
     { id: 'std2', name: 'Bob Wilson', email: 'bob@student.edu', role: 'student', status: 'suspended', department: 'Mathematics' }
   ]
 };
@@ -51,7 +51,7 @@ function AdminCourseManagement() {
         name: newCourseName.trim(),
         lecturerId: selectedLecturer,
         lecturerName: lecturer.name,
-        status: 'active',
+        status: 'Pending',
         createdAt: new Date().toISOString().split('T')[0]
       };
       
@@ -79,7 +79,7 @@ function AdminCourseManagement() {
     try {
       setCourses(prev => prev.map(course => 
         course.id === courseId 
-          ? { ...course, status: course.status === 'active' ? 'inactive' : 'active' }
+          ? { ...course, status: course.status === 'Pending' ? 'Rejected' : 'Pending' }
           : course
       ));
     } catch (err) {
@@ -105,7 +105,7 @@ function AdminCourseManagement() {
       try {
         setUsers(prev => prev.map(user => 
           user.id === userId 
-            ? { ...user, status: user.status === 'active' ? 'suspended' : 'active' }
+            ? { ...user, status: user.status === 'Pending' ? 'Rejected' : 'Pending' }
             : user
         ));
       } catch (err) {
@@ -242,7 +242,7 @@ function AdminCourseManagement() {
                       <td className="px-6 py-4 text-sm text-gray-600">{course.lecturerName}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          course.status === 'active' 
+                          course.status === 'Pending' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
@@ -261,10 +261,10 @@ function AdminCourseManagement() {
                           </button>
                           <button
                             onClick={() => toggleCourseStatus(course.id)}
-                            className={`p-1 ${course.status === 'active' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
-                            title={course.status === 'active' ? 'Deactivate' : 'Activate'}
+                            className={`p-1 ${course.status === 'Pending' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
+                            title={course.status === 'Pending' ? 'Rejected' : 'Approved'}
                           >
-                            {course.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                            {course.status === 'Pending' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={() => deleteCourse(course.id)}
@@ -322,7 +322,7 @@ function AdminCourseManagement() {
                       <td className="px-6 py-4 text-sm text-gray-600">{user.department}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.status === 'active' 
+                          user.status === 'Pending' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
@@ -333,10 +333,10 @@ function AdminCourseManagement() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => toggleUserStatus(user.id)}
-                            className={`p-1 ${user.status === 'active' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
-                            title={user.status === 'active' ? 'Suspend user' : 'Activate user'}
+                            className={`p-1 ${user.status === 'Pending' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
+                            title={user.status === 'Pending' ? 'Suspend user' : 'Activate user'}
                           >
-                            {user.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                            {user.status === 'Pending' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={() => deleteUser(user.id)}
