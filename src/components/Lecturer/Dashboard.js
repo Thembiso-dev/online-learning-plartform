@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { auth } from '../../firebase';
+import CreateCourse from './CreateCourse'; // Import the CreateCourse component
+import MyCourses from './MyCourses'; // Import the MyCourses component
 
 function LecturerDashboard() {
   const { currentUser } = useAuth();
@@ -17,21 +19,9 @@ function LecturerDashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case 'my-courses':
-        return (
-          <div>
-            <h2>My Courses</h2>
-            <p>Here you can view and manage the courses you're teaching.</p>
-            {/* Add your LecturerMyCourses component here when available */}
-          </div>
-        );
+        return <MyCourses />; // Use the MyCourses component
       case 'create-course':
-        return (
-          <div>
-            <h2>Create New Course</h2>
-            <p>Create a new course for students to enroll in.</p>
-            {/* Add your CreateCourse component here when available */}
-          </div>
-        );
+        return <CreateCourse />; // Use the CreateCourse component
       default:
         return (
           <div>
@@ -57,13 +47,12 @@ function LecturerDashboard() {
     <div className="dashboard container">
       <header className="dashboard-header">
         <h1>Lecturer Dashboard</h1>
-        <p>Welcome, {currentUser?.email}</p>
+        <p>Welcome, {currentUser?.displayName || currentUser?.email}</p>
       </header>
-      
       <nav className="dashboard-nav">
         <ul>
           <li>
-            <button 
+            <button
               className={activeTab === 'overview' ? 'active' : ''}
               onClick={() => setActiveTab('overview')}
             >
@@ -71,7 +60,7 @@ function LecturerDashboard() {
             </button>
           </li>
           <li>
-            <button 
+            <button
               className={activeTab === 'my-courses' ? 'active' : ''}
               onClick={() => setActiveTab('my-courses')}
             >
@@ -79,7 +68,7 @@ function LecturerDashboard() {
             </button>
           </li>
           <li>
-            <button 
+            <button
               className={activeTab === 'create-course' ? 'active' : ''}
               onClick={() => setActiveTab('create-course')}
             >
@@ -93,7 +82,6 @@ function LecturerDashboard() {
           </li>
         </ul>
       </nav>
-      
       <div className="dashboard-content">
         {renderContent()}
       </div>

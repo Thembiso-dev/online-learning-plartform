@@ -1,3 +1,21 @@
+# create & switch to new branch
+git checkout -b your-branch-name
+
+# stage & commit changes
+git add .
+git commit -m "Your commit message"
+
+# push new branch to GitHub
+git push -u origin your-branch-name
+
+# pull latest changes from your branch
+git pull origin your-branch-name
+
+
+
+
+
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
