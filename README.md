@@ -1,3 +1,4 @@
+
 # create & switch to new branch
 git checkout -b your-branch-name
 
@@ -10,9 +11,6 @@ git push -u origin your-branch-name
 
 # pull latest changes from your branch
 git pull origin your-branch-name
-
-
-
 
 
 
