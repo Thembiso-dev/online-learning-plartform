@@ -4,21 +4,21 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 
 function CreateCourse() {
-  const [courseData, setCourseData] = useState({
+  const { currentUser } = useAuth();
+  const [formData, setFormData] = useState({
     title: '',
     description: '',
     category: '',
     duration: '',
-    maxStudents: ''
+    maxStudents: '',
+    requirements: ''
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { currentUser } = useAuth();
+  const [message, setMessage] = useState({ type: '', text: '' });
 
-  const handleInputChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setCourseData(prev => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -27,92 +27,74 @@ function CreateCourse() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!currentUser) {
-      setError('You must be logged in to create a course');
+    if (!formData.title.trim() || !formData.description.trim()) {
+      setMessage({ type: 'error', text: 'Title and description are required.' });
       return;
     }
 
-    try {
-      setError('');
-      setSuccess('');
-      setLoading(true);
+    setLoading(true);
+    setMessage({ type: '', text: '' });
 
-      // Enhanced course data structure for admin management
-      const newCourseData = {
-        title: courseData.title.trim(),
-        description: courseData.description.trim(),
-        category: courseData.category.trim(),
-        duration: courseData.duration.trim(),
-        maxStudents: parseInt(courseData.maxStudents) || 0,
+    try {
+      const courseData = {
+        ...formData,
         lecturerId: currentUser.uid,
-        lecturerName: currentUser.displayName || currentUser.email,
-        lecturerEmail: currentUser.email,
         createdAt: new Date(),
         updatedAt: new Date(),
-        status: 'pending', // Admin will approve/reject
         studentsEnrolled: [],
-        enrollmentCount: 0,
-        isActive: false, // Admin activates after approval
-        materials: [],
-        assignments: [],
-        announcements: []
+        status: 'pending', // All new courses start as pending approval
+        enrollmentCount: 0
       };
 
-      await addDoc(collection(db, 'courses'), newCourseData);
+      await addDoc(collection(db, 'courses'), courseData);
       
-      setSuccess('Course created successfully! It will appear in admin course management for approval.');
+      setMessage({ 
+        type: 'success', 
+        text: 'Course created successfully! It is now pending admin approval. You will be notified once it\'s reviewed.' 
+      });
       
       // Reset form
-      setCourseData({
+      setFormData({
         title: '',
         description: '',
         category: '',
         duration: '',
-        maxStudents: ''
+        maxStudents: '',
+        requirements: ''
       });
       
-    } catch (err) {
-      console.error('Error creating course:', err);
-      setError('Failed to create course: ' + err.message);
+    } catch (error) {
+      console.error('Error creating course:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Failed to create course. Please try again.' 
+      });
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
-      <h2 style={{ color: '#333', marginBottom: '20px' }}>Create New Course</h2>
+    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+      <h2>Create New Course</h2>
       <p style={{ color: '#666', marginBottom: '20px' }}>
-        Create a new course for students to enroll in.
+        Fill out the form below to create a new course. All courses require admin approval before becoming available to students.
       </p>
       
-      {error && (
-        <div style={{ 
-          backgroundColor: '#ffebee', 
-          color: '#c62828', 
-          padding: '10px', 
-          borderRadius: '4px', 
-          marginBottom: '15px',
-          border: '1px solid #ffcdd2'
+      {message.text && (
+        <div style={{
+          padding: '12px 16px',
+          marginBottom: '20px',
+          borderRadius: '4px',
+          backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
+          color: message.type === 'success' ? '#155724' : '#721c24',
+          border: `1px solid ${message.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`
         }}>
-          {error}
-        </div>
-      )}
-      
-      {success && (
-        <div style={{ 
-          backgroundColor: '#e8f5e8', 
-          color: '#2e7d32', 
-          padding: '10px', 
-          borderRadius: '4px', 
-          marginBottom: '15px',
-          border: '1px solid #c8e6c9'
-        }}>
-          {success}
+          {message.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '20px' }}>
         <div>
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
             Course Title *
@@ -120,152 +102,165 @@ function CreateCourse() {
           <input
             type="text"
             name="title"
-            value={courseData.title}
-            onChange={handleInputChange}
+            value={formData.title}
+            onChange={handleChange}
             required
-            placeholder="Enter course title"
             style={{
               width: '100%',
               padding: '10px',
               border: '1px solid #ddd',
               borderRadius: '4px',
-              fontSize: '14px',
-              boxSizing: 'border-box'
+              fontSize: '16px'
             }}
+            placeholder="Enter course title"
           />
         </div>
 
         <div>
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Category *
-          </label>
-          <select
-            name="category"
-            value={courseData.category}
-            onChange={handleInputChange}
-            required
-            style={{
-              width: '100%',
-              padding: '10px',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              fontSize: '14px',
-              boxSizing: 'border-box'
-            }}
-          >
-            <option value="">Select a category</option>
-            <option value="Computer Science">Computer Science</option>
-            <option value="Mathematics">Mathematics</option>
-            <option value="Physics">Physics</option>
-            <option value="Chemistry">Chemistry</option>
-            <option value="Biology">Biology</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Business">Business</option>
-            <option value="Arts">Arts</option>
-            <option value="Languages">Languages</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-
-        <div style={{ display: 'flex', gap: '15px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Duration *
-            </label>
-            <input
-              type="text"
-              name="duration"
-              value={courseData.duration}
-              onChange={handleInputChange}
-              required
-              placeholder="e.g., 12 weeks, 3 months"
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Max Students
-            </label>
-            <input
-              type="number"
-              name="maxStudents"
-              value={courseData.maxStudents}
-              onChange={handleInputChange}
-              placeholder="e.g., 30"
-              min="1"
-              max="500"
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Description *
+            Course Description *
           </label>
           <textarea
             name="description"
-            value={courseData.description}
-            onChange={handleInputChange}
+            value={formData.description}
+            onChange={handleChange}
             required
-            placeholder="Provide a detailed description of the course"
             rows="4"
             style={{
               width: '100%',
               padding: '10px',
               border: '1px solid #ddd',
               borderRadius: '4px',
-              fontSize: '14px',
-              resize: 'vertical',
-              boxSizing: 'border-box'
+              fontSize: '16px',
+              resize: 'vertical'
             }}
+            placeholder="Describe what students will learn in this course"
           />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Category
+            </label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '16px'
+              }}
+            >
+              <option value="">Select a category</option>
+              <option value="Computer Science">Computer Science</option>
+              <option value="Mathematics">Mathematics</option>
+              <option value="Science">Science</option>
+              <option value="Business">Business</option>
+              <option value="Arts">Arts</option>
+              <option value="Language">Language</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Duration
+            </label>
+            <input
+              type="text"
+              name="duration"
+              value={formData.duration}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '16px'
+              }}
+              placeholder="e.g., 8 weeks, 3 months"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Maximum Students
+          </label>
+          <input
+            type="number"
+            name="maxStudents"
+            value={formData.maxStudents}
+            onChange={handleChange}
+            min="1"
+            style={{
+              width: '200px',
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '16px'
+            }}
+            placeholder="Enter max number"
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Prerequisites/Requirements
+          </label>
+          <textarea
+            name="requirements"
+            value={formData.requirements}
+            onChange={handleChange}
+            rows="3"
+            style={{
+              width: '100%',
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '16px',
+              resize: 'vertical'
+            }}
+            placeholder="List any prerequisites or requirements for this course"
+          />
+        </div>
+
+        <div style={{
+          backgroundColor: '#f8f9fa',
+          padding: '15px',
+          borderRadius: '4px',
+          border: '1px solid #dee2e6'
+        }}>
+          <h4 style={{ margin: '0 0 10px 0', color: '#495057' }}>📋 Course Approval Process</h4>
+          <ul style={{ margin: 0, paddingLeft: '20px', color: '#666' }}>
+            <li>After submission, your course will be marked as "Pending" approval</li>
+            <li>An admin will review your course details</li>
+            <li>You'll be notified when your course is approved or if changes are needed</li>
+            <li>Approved courses become available to students for enrollment</li>
+          </ul>
         </div>
 
         <button
           type="submit"
           disabled={loading}
           style={{
-            backgroundColor: loading ? '#ccc' : '#007bff',
+            backgroundColor: loading ? '#6c757d' : '#007bff',
             color: 'white',
-            padding: '12px 24px',
+            padding: '12px 30px',
             border: 'none',
             borderRadius: '4px',
             fontSize: '16px',
             cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'background-color 0.2s'
+            justifySelf: 'start'
           }}
         >
-          {loading ? 'Creating Course...' : 'Create Course'}
+          {loading ? 'Creating Course...' : 'Create Course for Approval'}
         </button>
       </form>
-
-      <div style={{ 
-        marginTop: '20px', 
-        padding: '15px', 
-        backgroundColor: '#f8f9fa', 
-        borderRadius: '4px',
-        fontSize: '14px',
-        color: '#666'
-      }}>
-        <strong>Note:</strong> After creating your course, it will be sent to the admin for approval. 
-        Once approved, students will be able to enroll in your course.
-      </div>
     </div>
   );
 }

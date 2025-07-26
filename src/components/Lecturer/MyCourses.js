@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../firebase';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 
 function MyCourses() {
@@ -12,59 +12,104 @@ function MyCourses() {
 
   useEffect(() => {
     if (currentUser) {
-      fetchMyCourses();
-      // Set up interval to check for updates every 30 seconds
-      const interval = setInterval(fetchMyCourses, 30000);
-      return () => clearInterval(interval);
+      // Use real-time listener for instant updates when admin approves/rejects
+      const unsubscribe = setupRealtimeListener();
+      return () => unsubscribe && unsubscribe();
     }
   }, [currentUser]);
+
+  const setupRealtimeListener = () => {
+    try {
+      console.log('Setting up real-time listener for courses...');
+      
+      const coursesQuery = query(
+        collection(db, 'courses'),
+        where('lecturerId', '==', currentUser.uid)
+      );
+      
+      const unsubscribe = onSnapshot(coursesQuery, (snapshot) => {
+        console.log('Real-time update received, processing courses...');
+        
+        const coursesData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          console.log('Course found:', data.title, 'Status:', data.status);
+          return {
+            id: doc.id,
+            ...data
+          };
+        });
+        
+        // Sort by creation date (newest first)
+        coursesData.sort((a, b) => {
+          const dateA = a.createdAt?.toDate?.() || new Date(0);
+          const dateB = b.createdAt?.toDate?.() || new Date(0);
+          return dateB - dateA;
+        });
+        
+        console.log('Total courses found:', coursesData.length);
+        setCourses(coursesData);
+        setLastUpdated(new Date());
+        setLoading(false);
+      }, (error) => {
+        console.error('Error in real-time listener:', error);
+        // Fallback to manual fetch
+        fetchMyCourses();
+      });
+      
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error setting up real-time listener:', error);
+      fetchMyCourses();
+      return null;
+    }
+  };
 
   const fetchMyCourses = async () => {
     try {
       setLoading(true);
-      console.log('Fetching courses for lecturer:', currentUser.uid); // Debug log
+      console.log('Fetching courses for lecturer:', currentUser.uid);
       
-      const coursesQuery = query(
+      // Try with orderBy first
+      let coursesQuery = query(
         collection(db, 'courses'),
         where('lecturerId', '==', currentUser.uid),
         orderBy('createdAt', 'desc')
       );
       
-      const querySnapshot = await getDocs(coursesQuery);
+      let querySnapshot;
+      try {
+        querySnapshot = await getDocs(coursesQuery);
+      } catch (orderError) {
+        console.log('OrderBy failed, trying without ordering:', orderError);
+        // Fallback without orderBy
+        coursesQuery = query(
+          collection(db, 'courses'),
+          where('lecturerId', '==', currentUser.uid)
+        );
+        querySnapshot = await getDocs(coursesQuery);
+      }
+      
       const coursesData = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        console.log('Found course:', data.title, 'Status:', data.status); // Debug log
+        console.log('Found course:', data.title, 'Status:', data.status);
         return {
           id: doc.id,
           ...data
         };
       });
       
-      console.log('Total courses found:', coursesData.length); // Debug log
+      // Sort manually if orderBy wasn't available
+      coursesData.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB - dateA;
+      });
+      
+      console.log('Total courses found:', coursesData.length);
       setCourses(coursesData);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching my courses:', error);
-      // If there's an error with orderBy (index might not exist), try without ordering
-      try {
-        console.log('Trying fallback query without orderBy...');
-        const fallbackQuery = query(
-          collection(db, 'courses'),
-          where('lecturerId', '==', currentUser.uid)
-        );
-        
-        const fallbackSnapshot = await getDocs(fallbackQuery);
-        const fallbackData = fallbackSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
-        console.log('Fallback query found:', fallbackData.length, 'courses');
-        setCourses(fallbackData);
-        setLastUpdated(new Date());
-      } catch (fallbackError) {
-        console.error('Fallback query also failed:', fallbackError);
-      }
     } finally {
       setLoading(false);
     }
@@ -102,10 +147,20 @@ function MyCourses() {
     }
   };
 
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'pending': return '⏳';
+      case 'approved': return '✅';
+      case 'rejected': return '❌';
+      default: return '❓';
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>Loading your courses...</p>
+        <div style={{ fontSize: '18px', marginBottom: '10px' }}>Loading your courses...</div>
+        <div style={{ color: '#666', fontSize: '14px' }}>Setting up real-time updates...</div>
       </div>
     );
   }
@@ -127,21 +182,7 @@ function MyCourses() {
               fontSize: '14px'
             }}
           >
-            🔄 Refresh Status
-          </button>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              backgroundColor: '#007bff',
-              color: 'white',
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            🔃 Hard Refresh
+            🔄 Refresh
           </button>
         </div>
       </div>
@@ -172,7 +213,7 @@ function MyCourses() {
           textAlign: 'center',
           border: '1px solid #ffeaa7'
         }}>
-          <h3 style={{ margin: '0 0 5px 0', color: '#856404' }}>Pending</h3>
+          <h3 style={{ margin: '0 0 5px 0', color: '#856404' }}>⏳ Pending</h3>
           <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#856404' }}>
             {courses.filter(c => c.status === 'pending').length}
           </p>
@@ -184,7 +225,7 @@ function MyCourses() {
           textAlign: 'center',
           border: '1px solid #c3e6cb'
         }}>
-          <h3 style={{ margin: '0 0 5px 0', color: '#155724' }}>Approved</h3>
+          <h3 style={{ margin: '0 0 5px 0', color: '#155724' }}>✅ Approved</h3>
           <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#155724' }}>
             {courses.filter(c => c.status === 'approved').length}
           </p>
@@ -196,7 +237,7 @@ function MyCourses() {
           textAlign: 'center',
           border: '1px solid #f5c6cb'
         }}>
-          <h3 style={{ margin: '0 0 5px 0', color: '#721c24' }}>Rejected</h3>
+          <h3 style={{ margin: '0 0 5px 0', color: '#721c24' }}>❌ Rejected</h3>
           <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#721c24' }}>
             {courses.filter(c => c.status === 'rejected').length}
           </p>
@@ -225,23 +266,23 @@ function MyCourses() {
         ))}
       </div>
 
-      {/* Debug Information */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{ 
-          backgroundColor: '#f0f0f0', 
-          padding: '10px', 
-          marginBottom: '20px', 
-          borderRadius: '4px',
-          fontSize: '12px',
-          color: '#666'
-        }}>
-          <strong>Debug Info:</strong> Current User ID: {currentUser?.uid} | Total Courses: {courses.length} | Filtered: {filteredCourses.length}
-          <br />
-          <strong>Last Updated:</strong> {lastUpdated?.toLocaleTimeString() || 'Never'} | Auto-refresh: Every 30 seconds
-        </div>
-      )}
+      {/* Real-time Updates Indicator */}
+      <div style={{
+        backgroundColor: '#e3f2fd',
+        color: '#1976d2',
+        padding: '10px',
+        borderRadius: '4px',
+        border: '1px solid #bbdefb',
+        marginBottom: '20px',
+        fontSize: '14px',
+        textAlign: 'center'
+      }}>
+        <strong>🔴 Live Updates:</strong> This page automatically updates when admins approve or reject your courses.
+        <br />
+        <strong>Last Updated:</strong> {lastUpdated?.toLocaleTimeString() || 'Never'}
+      </div>
 
-      {/* Status Update Banner */}
+      {/* Status Update Banners */}
       {courses.some(course => course.status === 'pending') && (
         <div style={{
           backgroundColor: '#fff3cd',
@@ -253,11 +294,14 @@ function MyCourses() {
           textAlign: 'center'
         }}>
           <strong>⏳ Pending Courses:</strong> You have {courses.filter(c => c.status === 'pending').length} course(s) waiting for admin approval. 
-          This page auto-refreshes every 30 seconds to show the latest status.
+          Updates appear automatically when status changes.
         </div>
       )}
 
-      {courses.some(course => course.updatedAt?.toDate?.() > new Date(Date.now() - 24 * 60 * 60 * 1000)) && (
+      {courses.some(course => {
+        const updatedRecently = course.updatedAt?.toDate?.() > new Date(Date.now() - 24 * 60 * 60 * 1000);
+        return updatedRecently;
+      }) && (
         <div style={{
           backgroundColor: '#d4edda',
           color: '#155724',
@@ -276,7 +320,7 @@ function MyCourses() {
         <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
           {courses.length === 0 ? (
             <div>
-              <p>You haven't created any courses yet.</p>
+              <p style={{ fontSize: '18px', marginBottom: '10px' }}>You haven't created any courses yet.</p>
               <p>Click on "Create New Course" to get started!</p>
             </div>
           ) : (
@@ -287,16 +331,39 @@ function MyCourses() {
         <div style={{ display: 'grid', gap: '15px' }}>
           {filteredCourses.map(course => {
             const statusStyle = getStatusColor(course.status);
+            const isRecentlyUpdated = course.updatedAt?.toDate?.() > new Date(Date.now() - 60 * 60 * 1000); // Last hour
+            
             return (
               <div key={course.id} style={{
                 border: '1px solid #ddd',
                 borderRadius: '8px',
                 padding: '20px',
-                backgroundColor: 'white'
+                backgroundColor: 'white',
+                position: 'relative',
+                boxShadow: isRecentlyUpdated ? '0 0 10px rgba(40, 167, 69, 0.3)' : 'none'
               }}>
+                {isRecentlyUpdated && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    backgroundColor: '#28a745',
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}>
+                    RECENTLY UPDATED
+                  </div>
+                )}
+                
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>{course.title}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                      <h3 style={{ margin: '0 10px 0 0', color: '#333' }}>{course.title}</h3>
+                      <span style={{ fontSize: '24px' }}>{getStatusIcon(course.status)}</span>
+                    </div>
                     <p style={{ color: '#666', margin: '0 0 15px 0' }}>{course.description}</p>
                     
                     <div style={{ 
@@ -307,10 +374,10 @@ function MyCourses() {
                       color: '#555',
                       marginBottom: '15px'
                     }}>
-                      <div><strong>Category:</strong> {course.category}</div>
-                      <div><strong>Duration:</strong> {course.duration}</div>
-                      <div><strong>Max Students:</strong> {course.maxStudents}</div>
-                      <div><strong>Enrolled:</strong> {course.enrollmentCount || 0}</div>
+                      <div><strong>Category:</strong> {course.category || 'Not specified'}</div>
+                      <div><strong>Duration:</strong> {course.duration || 'Not specified'}</div>
+                      <div><strong>Max Students:</strong> {course.maxStudents || 'Unlimited'}</div>
+                      <div><strong>Enrolled:</strong> {course.studentsEnrolled?.length || 0}</div>
                       <div><strong>Created:</strong> {course.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</div>
                       <div><strong>Last Updated:</strong> {course.updatedAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</div>
                     </div>
@@ -326,7 +393,7 @@ function MyCourses() {
                       marginBottom: '10px'
                     }}>
                       <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
-                        Status: {course.status.toUpperCase()}
+                        {getStatusIcon(course.status)} Status: {course.status.toUpperCase()}
                       </div>
                       <div>{getStatusMessage(course.status)}</div>
                       <div style={{ marginTop: '5px', fontSize: '12px', fontStyle: 'italic' }}>
@@ -342,7 +409,7 @@ function MyCourses() {
                       padding: '8px',
                       borderRadius: '4px'
                     }}>
-                      <strong>Last updated:</strong> {course.updatedAt?.toDate?.()?.toLocaleString() || 'N/A'}
+                      <strong>Last status update:</strong> {course.updatedAt?.toDate?.()?.toLocaleString() || 'N/A'}
                       <br />
                       <strong>Course ID:</strong> {course.id}
                     </div>
@@ -360,7 +427,7 @@ function MyCourses() {
                       textTransform: 'uppercase',
                       minWidth: '80px'
                     }}>
-                      {course.status}
+                      {getStatusIcon(course.status)} {course.status}
                     </div>
                   </div>
                 </div>

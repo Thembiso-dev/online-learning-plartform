@@ -5,6 +5,7 @@ import Login from './components/Auth/Login';
 import AdminDashboard from './components/Admin/Dashboard';
 import LecturerDashboard from './components/Lecturer/Dashboard';
 import StudentDashboard from './components/Students/Dashboard';
+import CourseManagement from './components/Admin/CourseManagement';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           
           {/* Admin Routes */}
           <Route path="/admin/dashboard" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/courses" element={<ProtectedRoute role="admin"><CourseManagement /></ProtectedRoute>} />
           
           {/* Lecturer Routes */}
           <Route path="/lecturer/dashboard" element={<ProtectedRoute role="lecturer"><LecturerDashboard /></ProtectedRoute>} />

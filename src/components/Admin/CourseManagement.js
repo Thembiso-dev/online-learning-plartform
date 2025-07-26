@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
-import { User, BookOpen, Trash2, Edit3, UserCheck, UserX, Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { User, BookOpen, UserCheck, UserX, Plus, CheckCircle, XCircle } from 'lucide-react';
 
 // Mock Firebase functions for demo - replace with your actual Firebase imports
 const mockDb = {
   courses: [
-    { id: '1', name: 'Introduction to Programming', lecturerId: 'lec1', lecturerName: 'Dr. Smith', status: 'active', createdAt: '2024-01-15' },
-    { id: '2', name: 'Data Structures', lecturerId: 'lec2', lecturerName: 'Prof. Johnson', status: 'active', createdAt: '2024-02-01' },
-    { id: '3', name: 'Web Development', lecturerId: 'lec1', lecturerName: 'Dr. Smith', status: 'inactive', createdAt: '2024-01-20' }
+    { id: '1', name: 'Introduction to Programming', lecturerId: 'lec1', lecturerName: 'Dr. Smith', status: 'pending', createdAt: '2024-01-15' },
+    { id: '2', name: 'Data Structures', lecturerId: 'lec2', lecturerName: 'Prof. Johnson', status: 'approved', createdAt: '2024-02-01' },
+    { id: '3', name: 'Web Development', lecturerId: 'lec1', lecturerName: 'Dr. Smith', status: 'rejected', createdAt: '2024-01-20' },
+    { id: '4', name: 'Database Systems', lecturerId: 'lec2', lecturerName: 'Prof. Johnson', status: 'pending', createdAt: '2024-02-10' }
   ],
   users: [
     { id: 'lec1', name: 'Dr. Smith', email: 'smith@university.edu', role: 'lecturer', status: 'active', department: 'Computer Science' },
@@ -16,29 +17,29 @@ const mockDb = {
   ]
 };
 
-function AdminCourseManagement() {
+const CourseManagement = () => {
   const [courses, setCourses] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('courses');
-  const [error, setError] = useState(null);
-  const [editingCourse, setEditingCourse] = useState(null);
-  const [editingUser, setEditingUser] = useState(null);
+  const [error] = useState(null);
   const [newCourseName, setNewCourseName] = useState('');
   const [selectedLecturer, setSelectedLecturer] = useState('');
 
   useEffect(() => {
     // Simulate fetching data
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setCourses(mockDb.courses);
       setUsers(mockDb.users);
       setLoading(false);
     }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const lecturers = users.filter(user => user.role === 'lecturer');
 
-  async function addCourse() {
+  const addCourse = async () => {
     if (!newCourseName.trim() || !selectedLecturer) {
       alert('Please enter a course name and select a lecturer');
       return;
@@ -51,10 +52,9 @@ function AdminCourseManagement() {
         name: newCourseName.trim(),
         lecturerId: selectedLecturer,
         lecturerName: lecturer.name,
-        status: 'active',
+        status: 'pending',
         createdAt: new Date().toISOString().split('T')[0]
       };
-      
       setCourses(prev => [...prev, newCourse]);
       setNewCourseName('');
       setSelectedLecturer('');
@@ -62,49 +62,29 @@ function AdminCourseManagement() {
       console.error("Error adding course:", err);
       alert('Failed to add course');
     }
-  }
+  };
 
-  async function deleteCourse(courseId) {
-    if (window.confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
-      try {
-        setCourses(prev => prev.filter(c => c.id !== courseId));
-      } catch (err) {
-        console.error("Error deleting course:", err);
-        alert('Failed to delete course');
-      }
-    }
-  }
+  const approveCourse = (courseId) => {
+    setCourses(prev =>
+      prev.map(course =>
+        course.id === courseId ? { ...course, status: 'approved' } : course
+      )
+    );
+  };
 
-  async function toggleCourseStatus(courseId) {
-    try {
-      setCourses(prev => prev.map(course => 
-        course.id === courseId 
-          ? { ...course, status: course.status === 'active' ? 'inactive' : 'active' }
-          : course
-      ));
-    } catch (err) {
-      console.error("Error updating course status:", err);
-      alert('Failed to update course status');
-    }
-  }
+  const rejectCourse = (courseId) => {
+    setCourses(prev =>
+      prev.map(course =>
+        course.id === courseId ? { ...course, status: 'rejected' } : course
+      )
+    );
+  };
 
-  async function updateCourse(courseId, updatedName) {
-    try {
-      setCourses(prev => prev.map(course => 
-        course.id === courseId ? { ...course, name: updatedName } : course
-      ));
-      setEditingCourse(null);
-    } catch (err) {
-      console.error("Error updating course:", err);
-      alert('Failed to update course');
-    }
-  }
-
-  async function toggleUserStatus(userId) {
+  const toggleUserStatus = async (userId) => {
     if (window.confirm('Are you sure you want to change this user\'s status?')) {
       try {
-        setUsers(prev => prev.map(user => 
-          user.id === userId 
+        setUsers(prev => prev.map(user =>
+          user.id === userId
             ? { ...user, status: user.status === 'active' ? 'suspended' : 'active' }
             : user
         ));
@@ -113,9 +93,9 @@ function AdminCourseManagement() {
         alert('Failed to update user status');
       }
     }
-  }
+  };
 
-  async function deleteUser(userId) {
+  const deleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user? This will also affect their associated courses.')) {
       try {
         setUsers(prev => prev.filter(u => u.id !== userId));
@@ -128,7 +108,7 @@ function AdminCourseManagement() {
         alert('Failed to delete user');
       }
     }
-  }
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center p-8">
@@ -143,7 +123,7 @@ function AdminCourseManagement() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-white">
+    <div className="max-w-6xl mx-auto p-6 bg-white min-h-screen">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
       
       {/* Tab Navigation */}
@@ -151,8 +131,8 @@ function AdminCourseManagement() {
         <button
           onClick={() => setActiveTab('courses')}
           className={`flex items-center px-4 py-2 rounded-md font-medium transition-colors ${
-            activeTab === 'courses' 
-              ? 'bg-white text-blue-600 shadow-sm' 
+            activeTab === 'courses'
+              ? 'bg-white text-blue-600 shadow-sm'
               : 'text-gray-600 hover:text-gray-800'
           }`}
         >
@@ -162,8 +142,8 @@ function AdminCourseManagement() {
         <button
           onClick={() => setActiveTab('users')}
           className={`flex items-center px-4 py-2 rounded-md font-medium transition-colors ${
-            activeTab === 'users' 
-              ? 'bg-white text-blue-600 shadow-sm' 
+            activeTab === 'users'
+              ? 'bg-white text-blue-600 shadow-sm'
               : 'text-gray-600 hover:text-gray-800'
           }`}
         >
@@ -226,25 +206,18 @@ function AdminCourseManagement() {
                   {courses.map(course => (
                     <tr key={course.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        {editingCourse === course.id ? (
-                          <input
-                            type="text"
-                            defaultValue={course.name}
-                            onBlur={(e) => updateCourse(course.id, e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && updateCourse(course.id, e.target.value)}
-                            className="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="font-medium text-gray-900">{course.name}</div>
-                        )}
+                        <div className="font-medium text-gray-900">{course.name}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{course.lecturerName}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          course.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
+                          course.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : course.status === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : course.status === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
                         }`}>
                           {course.status}
                         </span>
@@ -252,27 +225,26 @@ function AdminCourseManagement() {
                       <td className="px-6 py-4 text-sm text-gray-600">{course.createdAt}</td>
                       <td className="px-6 py-4">
                         <div className="flex space-x-2">
-                          <button
-                            onClick={() => setEditingCourse(editingCourse === course.id ? null : course.id)}
-                            className="p-1 text-blue-600 hover:text-blue-800"
-                            title="Edit course"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => toggleCourseStatus(course.id)}
-                            className={`p-1 ${course.status === 'active' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
-                            title={course.status === 'active' ? 'Deactivate' : 'Activate'}
-                          >
-                            {course.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={() => deleteCourse(course.id)}
-                            className="p-1 text-red-600 hover:text-red-800"
-                            title="Delete course"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {course.status !== 'approved' && (
+                            <button
+                              onClick={() => approveCourse(course.id)}
+                              className="flex items-center px-3 py-1 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
+                              title="Approve course"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Approve
+                            </button>
+                          )}
+                          {course.status !== 'rejected' && (
+                            <button
+                              onClick={() => rejectCourse(course.id)}
+                              className="flex items-center px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
+                              title="Reject course"
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Reject
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -312,8 +284,8 @@ function AdminCourseManagement() {
                       <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === 'lecturer' 
-                            ? 'bg-blue-100 text-blue-800' 
+                          user.role === 'lecturer'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
                           {user.role}
@@ -322,8 +294,8 @@ function AdminCourseManagement() {
                       <td className="px-6 py-4 text-sm text-gray-600">{user.department}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
+                          user.status === 'active'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
                           {user.status}
@@ -343,7 +315,7 @@ function AdminCourseManagement() {
                             className="p-1 text-red-600 hover:text-red-800"
                             title="Delete user"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <UserX className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -357,6 +329,6 @@ function AdminCourseManagement() {
       )}
     </div>
   );
-}
+};
 
-export default AdminCourseManagement;
+export default CourseManagement;

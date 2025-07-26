@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { User, BookOpen, Trash2, Edit3, UserCheck, UserX, Plus, Users, AlertCircle, LogOut } from 'lucide-react';
+import { User, BookOpen, UserCheck, UserX, Users, AlertCircle, LogOut, CheckCircle, XCircle } from 'lucide-react';
 import { db, auth } from '../../firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, arrayRemove, getDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, arrayRemove, getDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { signOut } from 'firebase/auth';
 
@@ -13,10 +13,6 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('courses');
   const [error, setError] = useState(null);
-  const [editingCourse, setEditingCourse] = useState(null);
-  const [newCourseName, setNewCourseName] = useState('');
-  const [newCourseDescription, setNewCourseDescription] = useState('');
-  const [selectedLecturer, setSelectedLecturer] = useState('');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [hasUserAccess, setHasUserAccess] = useState(false);
@@ -55,7 +51,7 @@ function AdminDashboard() {
         description: doc.data().description || '',
         lecturerId: doc.data().lecturerId || '',
         studentsEnrolled: doc.data().studentsEnrolled || [],
-        status: doc.data().status || 'active',
+        status: doc.data().status || 'pending', // Default to pending for approval workflow
         createdAt: doc.data().createdAt?.toDate?.()?.toLocaleDateString() || 
                   doc.data().createdAt?.toLocaleDateString?.() || 
                   new Date().toLocaleDateString()
@@ -101,93 +97,49 @@ function AdminDashboard() {
     return student ? student.name : 'Unknown Student';
   };
 
-  async function addCourse() {
-    if (!newCourseName.trim() || !selectedLecturer) {
-      alert('Please enter a course name and select a lecturer');
-      return;
-    }
-
-    try {
-      const courseData = {
-        title: newCourseName.trim(),
-        description: newCourseDescription.trim() || '',
-        lecturerId: selectedLecturer,
-        createdAt: new Date(),
-        studentsEnrolled: [],
-        status: 'active'
-      };
-      
-      const docRef = await addDoc(collection(db, 'courses'), courseData);
-      
-      const newCourse = {
-        id: docRef.id,
-        ...courseData,
-        name: newCourseName.trim(),
-        createdAt: new Date().toLocaleDateString()
-      };
-      
-      setCourses(prev => [...prev, newCourse]);
-      setNewCourseName('');
-      setNewCourseDescription('');
-      setSelectedLecturer('');
-    } catch (err) {
-      console.error("Error adding course:", err);
-      alert('Failed to add course: ' + err.message);
-    }
-  }
-
-  async function deleteCourse(courseId) {
-    if (window.confirm('Are you sure you want to delete this course? This will unenroll all students.')) {
+  // Approve course function
+  async function approveCourse(courseId) {
+    if (window.confirm('Are you sure you want to approve this course?')) {
       try {
-        await deleteDoc(doc(db, 'courses', courseId));
-        setCourses(prev => prev.filter(c => c.id !== courseId));
+        await updateDoc(doc(db, 'courses', courseId), {
+          status: 'approved',
+          updatedAt: new Date()
+        });
+        
+        setCourses(prev => prev.map(course => 
+          course.id === courseId 
+            ? { ...course, status: 'approved' }
+            : course
+        ));
+        
+        console.log('Course approved successfully');
       } catch (err) {
-        console.error("Error deleting course:", err);
-        alert('Failed to delete course: ' + err.message);
+        console.error("Error approving course:", err);
+        alert('Failed to approve course: ' + err.message);
       }
     }
   }
 
-  async function toggleCourseStatus(courseId) {
-    try {
-      const course = courses.find(c => c.id === courseId);
-      const newStatus = course.status === 'active' ? 'inactive' : 'active';
-      
-      await updateDoc(doc(db, 'courses', courseId), {
-        status: newStatus
-      });
-      
-      setCourses(prev => prev.map(course => 
-        course.id === courseId 
-          ? { ...course, status: newStatus }
-          : course
-      ));
-    } catch (err) {
-      console.error("Error updating course status:", err);
-      alert('Failed to update course status: ' + err.message);
-    }
-  }
-
-  async function updateCourse(courseId, updatedName) {
-    if (!updatedName.trim()) {
-      alert('Course name cannot be empty');
-      return;
-    }
-
-    try {
-      await updateDoc(doc(db, 'courses', courseId), {
-        title: updatedName.trim()
-      });
-      
-      setCourses(prev => prev.map(course => 
-        course.id === courseId 
-          ? { ...course, title: updatedName.trim(), name: updatedName.trim() } 
-          : course
-      ));
-      setEditingCourse(null);
-    } catch (err) {
-      console.error("Error updating course:", err);
-      alert('Failed to update course: ' + err.message);
+  // Reject course function
+  async function rejectCourse(courseId) {
+    if (window.confirm('Are you sure you want to reject this course?')) {
+      try {
+        await updateDoc(doc(db, 'courses', courseId), {
+          status: 'rejected',
+          updatedAt: new Date()
+        });
+        
+        setCourses(prev => prev.map(course => 
+          course.id === courseId 
+            ? { ...course, status: 'rejected' }
+            : course
+        ));
+        
+        console.log('Course rejected successfully');
+      } catch (err) {
+        console.error("Error rejecting course:", err);
+        alert('Failed to reject course: ' + err.message);
+      }
     }
   }
 
@@ -358,42 +310,32 @@ function AdminDashboard() {
 
       {activeTab === 'courses' && (
         <div>
+          {/* Course Statistics */}
           <div className="bg-gray-50 p-6 rounded-lg mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Add New Course</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <input
-                type="text"
-                placeholder="Course title"
-                value={newCourseName}
-                onChange={(e) => setNewCourseName(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <input
-                type="text"
-                placeholder="Course description"
-                value={newCourseDescription}
-                onChange={(e) => setNewCourseDescription(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <select
-                value={selectedLecturer}
-                onChange={(e) => setSelectedLecturer(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select Lecturer</option>
-                {lecturers.map(lecturer => (
-                  <option key={lecturer.id} value={lecturer.id}>
-                    {lecturer.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={addCourse}
-                className="flex items-center justify-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Course
-              </button>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Course Approval Statistics</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                <div className="text-2xl font-bold text-yellow-600">
+                  {courses.filter(c => c.status === 'pending').length}
+                </div>
+                <div className="text-sm text-gray-600">Pending Approval</div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                <div className="text-2xl font-bold text-green-600">
+                  {courses.filter(c => c.status === 'approved').length}
+                </div>
+                <div className="text-sm text-gray-600">Approved Courses</div>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                <div className="text-2xl font-bold text-red-600">
+                  {courses.filter(c => c.status === 'rejected').length}
+                </div>
+                <div className="text-sm text-gray-600">Rejected Courses</div>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <div className="text-2xl font-bold text-blue-600">{courses.length}</div>
+                <div className="text-sm text-gray-600">Total Courses</div>
+              </div>
             </div>
           </div>
 
@@ -417,17 +359,11 @@ function AdminDashboard() {
                   {courses.map(course => (
                     <tr key={course.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        {editingCourse === course.id ? (
-                          <input
-                            type="text"
-                            defaultValue={course.name}
-                            onBlur={(e) => updateCourse(course.id, e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && updateCourse(course.id, e.target.value)}
-                            className="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="font-medium text-gray-900">{course.name}</div>
+                        <div className="font-medium text-gray-900">{course.name}</div>
+                        {course.description && (
+                          <div className="text-sm text-gray-500 truncate max-w-xs">
+                            {course.description}
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
@@ -435,9 +371,13 @@ function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          course.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
+                          course.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : course.status === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : course.status === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
                         }`}>
                           {course.status}
                         </span>
@@ -448,27 +388,26 @@ function AdminDashboard() {
                       <td className="px-6 py-4 text-sm text-gray-600">{course.createdAt}</td>
                       <td className="px-6 py-4">
                         <div className="flex space-x-2">
-                          <button
-                            onClick={() => setEditingCourse(editingCourse === course.id ? null : course.id)}
-                            className="p-1 text-blue-600 hover:text-blue-800"
-                            title="Edit course"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => toggleCourseStatus(course.id)}
-                            className={`p-1 ${course.status === 'active' ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
-                            title={course.status === 'active' ? 'Deactivate' : 'Activate'}
-                          >
-                            {course.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={() => deleteCourse(course.id)}
-                            className="p-1 text-red-600 hover:text-red-800"
-                            title="Delete course"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {course.status !== 'approved' && (
+                            <button
+                              onClick={() => approveCourse(course.id)}
+                              className="flex items-center px-3 py-1 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
+                              title="Approve course"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Approve
+                            </button>
+                          )}
+                          {course.status !== 'rejected' && (
+                            <button
+                              onClick={() => rejectCourse(course.id)}
+                              className="flex items-center px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
+                              title="Reject course"
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Reject
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -537,7 +476,7 @@ function AdminDashboard() {
                               className="p-1 text-red-600 hover:text-red-800"
                               title="Delete user"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <UserX className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -616,8 +555,10 @@ function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          course.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
+                          course.status === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : course.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
                           {course.status}
