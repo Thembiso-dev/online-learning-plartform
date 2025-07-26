@@ -8,7 +8,7 @@ function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('student');
+  const [userRole, setuserRole] = useState('student');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,13 +52,13 @@ function SignUp() {
         uid: user.uid,
         email: email.toLowerCase(),
         name: name.trim(),
-        role,
+        userRole,
         createdAt: new Date(),
         isActive: true
       });
 
       // Navigate to dashboard
-      navigate(`/${role}/dashboard`);
+      navigate(`/${userRole}/dashboard`);
     } catch (err) {
       console.error('Signup error code:', err.code);
       console.error('Signup error message:', err.message);
@@ -88,7 +88,7 @@ function SignUp() {
         {error && (
           <div
             className="error-message"
-            role="alert"
+            userRole="alert"
             style={{ color: "red", marginBottom: "1rem" }}
             id="signup-error"
           >
@@ -166,11 +166,11 @@ function SignUp() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="role">Role</label>
+            <label htmlFor="userRole">userRole</label>
             <select
-              id="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
+              id="userRole"
+              value={userRole}
+              onChange={(e) => setuserRole(e.target.value)}
               disabled={loading}
             >
               <option value="student">Student</option>
