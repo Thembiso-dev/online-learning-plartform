@@ -7,6 +7,7 @@ function MyCourses() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
+  const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const { currentUser } = useAuth();
 
@@ -70,10 +71,23 @@ function MyCourses() {
     }
   };
 
+  // Combined filtering for both status and search
   const filteredCourses = courses.filter(course => {
-    if (filter === 'all') return true;
-    return course.status === filter;
+    // Status filter
+    const statusMatch = filter === 'all' || course.status === filter;
+    
+    // Search filter
+    const searchMatch = searchQuery === '' || 
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.category.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return statusMatch && searchMatch;
   });
+
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -100,6 +114,26 @@ function MyCourses() {
       case 'rejected': return 'You may revise and resubmit your course after addressing admin feedback.';
       default: return '';
     }
+  };
+
+  const highlightSearchText = (text, query) => {
+    if (!query) return text;
+    
+    const regex = new RegExp(`(${query})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <span key={index} style={{ 
+          backgroundColor: '#ffeb3b', 
+          padding: '2px 4px', 
+          borderRadius: '3px',
+          fontWeight: 'bold'
+        }}>
+          {part}
+        </span>
+      ) : part
+    );
   };
 
   if (loading) {
@@ -144,6 +178,79 @@ function MyCourses() {
             🔃 Hard Refresh
           </button>
         </div>
+      </div>
+
+      {/* Search Bar */}
+      <div style={{ 
+        marginBottom: '20px',
+        display: 'flex',
+        gap: '10px',
+        alignItems: 'center'
+      }}>
+        <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+          <input
+            type="text"
+            placeholder="Search courses by title, description, or category..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px 40px 12px 16px',
+              fontSize: '14px',
+              border: '2px solid #ddd',
+              borderRadius: '25px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              boxSizing: 'border-box'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#007bff'}
+            onBlur={(e) => e.target.style.borderColor = '#ddd'}
+          />
+          <div style={{
+            position: 'absolute',
+            right: '12px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: '#666',
+            fontSize: '16px',
+            pointerEvents: searchQuery ? 'auto' : 'none',
+            cursor: searchQuery ? 'pointer' : 'default'
+          }}>
+            {searchQuery ? (
+              <span 
+                onClick={clearSearch}
+                style={{ 
+                  backgroundColor: '#f0f0f0',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px'
+                }}
+                title="Clear search"
+              >
+                ✕
+              </span>
+            ) : (
+              <span>🔍</span>
+            )}
+          </div>
+        </div>
+        
+        {searchQuery && (
+          <div style={{
+            backgroundColor: '#e3f2fd',
+            padding: '8px 12px',
+            borderRadius: '20px',
+            fontSize: '14px',
+            color: '#1565c0',
+            border: '1px solid #bbdefb'
+          }}>
+            {filteredCourses.length} result{filteredCourses.length !== 1 ? 's' : ''} found
+          </div>
+        )}
       </div>
 
       {/* Statistics */}
@@ -238,6 +345,8 @@ function MyCourses() {
           <strong>Debug Info:</strong> Current User ID: {currentUser?.uid} | Total Courses: {courses.length} | Filtered: {filteredCourses.length}
           <br />
           <strong>Last Updated:</strong> {lastUpdated?.toLocaleTimeString() || 'Never'} | Auto-refresh: Every 30 seconds
+          <br />
+          <strong>Search Query:</strong> "{searchQuery}" | Status Filter: {filter}
         </div>
       )}
 
@@ -271,6 +380,25 @@ function MyCourses() {
         </div>
       )}
 
+      {/* Search Results Info */}
+      {searchQuery && (
+        <div style={{
+          backgroundColor: '#e3f2fd',
+          color: '#1565c0',
+          padding: '12px',
+          borderRadius: '6px',
+          border: '1px solid #bbdefb',
+          marginBottom: '20px',
+          textAlign: 'center'
+        }}>
+          <strong>🔍 Search Results:</strong> Found {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''} matching "{searchQuery}"
+          {filter !== 'all' && ` in ${filter} status`}
+          {filteredCourses.length > 0 && searchQuery && (
+            <span> - Search terms are highlighted below</span>
+          )}
+        </div>
+      )}
+
       {/* Courses List */}
       {filteredCourses.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
@@ -278,6 +406,20 @@ function MyCourses() {
             <div>
               <p>You haven't created any courses yet.</p>
               <p>Click on "Create New Course" to get started!</p>
+            </div>
+          ) : searchQuery ? (
+            <div>
+              <p>No courses found matching your search "{searchQuery}"</p>
+              <p>Try different keywords or <button 
+                onClick={clearSearch}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#007bff',
+                  textDecoration: 'underline',
+                  cursor: 'pointer'
+                }}
+              >clear the search</button> to see all courses.</p>
             </div>
           ) : (
             <p>No courses found for the selected filter.</p>
@@ -292,12 +434,21 @@ function MyCourses() {
                 border: '1px solid #ddd',
                 borderRadius: '8px',
                 padding: '20px',
-                backgroundColor: 'white'
+                backgroundColor: 'white',
+                boxShadow: searchQuery && (
+                  course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  course.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  course.category.toLowerCase().includes(searchQuery.toLowerCase())
+                ) ? '0 0 10px rgba(0, 123, 255, 0.3)' : 'none'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>{course.title}</h3>
-                    <p style={{ color: '#666', margin: '0 0 15px 0' }}>{course.description}</p>
+                    <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>
+                      {highlightSearchText(course.title, searchQuery)}
+                    </h3>
+                    <p style={{ color: '#666', margin: '0 0 15px 0' }}>
+                      {highlightSearchText(course.description, searchQuery)}
+                    </p>
                     
                     <div style={{ 
                       display: 'grid', 
@@ -307,7 +458,7 @@ function MyCourses() {
                       color: '#555',
                       marginBottom: '15px'
                     }}>
-                      <div><strong>Category:</strong> {course.category}</div>
+                      <div><strong>Category:</strong> {highlightSearchText(course.category, searchQuery)}</div>
                       <div><strong>Duration:</strong> {course.duration}</div>
                       <div><strong>Max Students:</strong> {course.maxStudents}</div>
                       <div><strong>Enrolled:</strong> {course.enrollmentCount || 0}</div>
