@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../firebase';
-import { collection, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, arrayUnion, query, where } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 
 function EnrollCourse() {
@@ -12,13 +12,25 @@ function EnrollCourse() {
 
   useEffect(() => {
     const fetchCourses = async () => {
-      const querySnapshot = await getDocs(collection(db, 'courses'));
-      const coursesData = [];
-      querySnapshot.forEach((doc) => {
-        coursesData.push({ id: doc.id, ...doc.data() });
-      });
-      setCourses(coursesData);
-      setLoading(false);
+      try {
+        // Only fetch courses with status 'approved'
+        const q = query(
+          collection(db, 'courses'),
+          where('status', '==', 'approved')
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const coursesData = [];
+        querySnapshot.forEach((doc) => {
+          coursesData.push({ id: doc.id, ...doc.data() });
+        });
+        setCourses(coursesData);
+      } catch (err) {
+        setError('Failed to load courses');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchCourses();
@@ -34,6 +46,16 @@ function EnrollCourse() {
       });
       
       setSuccess('Enrolled successfully!');
+      
+      // Update local state to reflect enrollment
+      setCourses(courses.map(course => 
+        course.id === courseId 
+          ? { 
+              ...course, 
+              studentsEnrolled: [...(course.studentsEnrolled || []), currentUser.uid] 
+            } 
+          : course
+      ));
     } catch (err) {
       setError(err.message);
     }
