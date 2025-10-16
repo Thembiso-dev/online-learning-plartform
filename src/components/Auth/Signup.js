@@ -8,7 +8,7 @@ function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [userRole, setuserRole] = useState('student');
+  const [userRole, setUserRole] = useState('student');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,9 +19,8 @@ function SignUp() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    setError(''); // clear old errors
+    setError('');
 
-    // Client-side validation
     if (!validateEmail(email)) {
       return setError('Please enter a valid email address.');
     }
@@ -38,26 +37,24 @@ function SignUp() {
     try {
       setLoading(true);
 
-      // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Update the user's display name
       await updateProfile(user, {
         displayName: name.trim()
       });
 
-      // Store additional user data in Firestore
+      // CONSISTENTLY use 'role' field (not 'userRole')
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: email.toLowerCase(),
         name: name.trim(),
-        userRole,
+        role: userRole, // ← Always use 'role' field
         createdAt: new Date(),
         isActive: true
       });
 
-      // Navigate to dashboard
+      console.log("User created with role:", userRole);
       navigate(`/${userRole}/dashboard`);
     } catch (err) {
       console.error('Signup error code:', err.code);
@@ -88,7 +85,7 @@ function SignUp() {
         {error && (
           <div
             className="error-message"
-            userRole="alert"
+            role="alert"
             style={{ color: "red", marginBottom: "1rem" }}
             id="signup-error"
           >
@@ -109,8 +106,6 @@ function SignUp() {
               required
               disabled={loading}
               placeholder="Enter your full name"
-              aria-invalid={error.toLowerCase().includes("name") ? "true" : "false"}
-              aria-describedby={error.toLowerCase().includes("name") ? "signup-error" : undefined}
             />
           </div>
           <div className="form-group">
@@ -126,8 +121,6 @@ function SignUp() {
               required
               disabled={loading}
               placeholder="Enter your email"
-              aria-invalid={error.toLowerCase().includes("email") ? "true" : "false"}
-              aria-describedby={error.toLowerCase().includes("email") ? "signup-error" : undefined}
             />
           </div>
           <div className="form-group">
@@ -144,8 +137,6 @@ function SignUp() {
               disabled={loading}
               placeholder="Enter password (min 6 characters)"
               minLength="6"
-              aria-invalid={error.toLowerCase().includes("password") ? "true" : "false"}
-              aria-describedby={error.toLowerCase().includes("password") ? "signup-error" : undefined}
             />
           </div>
           <div className="form-group">
@@ -161,16 +152,14 @@ function SignUp() {
               required
               disabled={loading}
               placeholder="Confirm your password"
-              aria-invalid={error.toLowerCase().includes("password") ? "true" : "false"}
-              aria-describedby={error.toLowerCase().includes("password") ? "signup-error" : undefined}
             />
           </div>
           <div className="form-group">
-            <label htmlFor="userRole">userRole</label>
+            <label htmlFor="userRole">Role</label>
             <select
               id="userRole"
               value={userRole}
-              onChange={(e) => setuserRole(e.target.value)}
+              onChange={(e) => setUserRole(e.target.value)}
               disabled={loading}
             >
               <option value="student">Student</option>

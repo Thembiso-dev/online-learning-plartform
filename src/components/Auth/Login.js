@@ -3,6 +3,7 @@ import { auth, db } from "../../firebase";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
+import "./Auth.css"; // We'll create this
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -35,7 +36,9 @@ function Login() {
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
-        const userRole = userDoc.data().role || "student"; // fallback role if missing
+        const userData = userDoc.data();
+        const userRole = userData.role || userData.userRole || "student";
+        console.log("Login - User role determined:", userRole);
         navigate(`/${userRole}/dashboard`);
       } else {
         setError("User profile not found. Contact administrator.");
@@ -81,58 +84,93 @@ function Login() {
   }
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h2>Log In</h2>
+    <div className="auth-wrapper">
+      <div className="auth-container login-container">
+        <div className="auth-header">
+          <div className="auth-logo">
+            <div className="logo-icon">🎓</div>
+            <h1>EduPlatform</h1>
+          </div>
+          <h2>Welcome Back</h2>
+          <p>Sign in to your account to continue</p>
+        </div>
 
-        {error && <div className="error-message" style={{ color: "red", marginBottom: "1rem" }}>{error}</div>}
-        {resetEmailSent && <div className="success-message" style={{ color: "green", marginBottom: "1rem" }}>
-          Password reset email sent! Check your inbox.
-        </div>}
+        <div className="auth-card">
+          {error && <div className="error-message">{error}</div>}
+          {resetEmailSent && <div className="success-message">
+            📧 Password reset email sent! Check your inbox.
+          </div>}
 
-        <form onSubmit={handleSubmit} noValidate>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-            autoComplete="email"
-            aria-invalid={error.toLowerCase().includes("email") ? "true" : "false"}
-            style={error.toLowerCase().includes("email") ? { borderColor: "red" } : {}}
-            required
-          />
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="input-group">
+              <div className="input-icon">📧</div>
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-            autoComplete="current-password"
-            aria-invalid={error.toLowerCase().includes("password") ? "true" : "false"}
-            style={error.toLowerCase().includes("password") ? { borderColor: "red" } : {}}
-            required
-          />
+            <div className="input-group">
+              <div className="input-icon">🔒</div>
+              <input
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Logging In..." : "Log In"}
-          </button>
-        </form>
+            <button 
+              type="submit" 
+              className="auth-btn primary-btn"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <div className="btn-spinner"></div>
+                  Signing In...
+                </>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+          </form>
 
-        <p>
-          <button
-            onClick={handleForgotPassword}
-            disabled={loading}
-            style={{ cursor: "pointer", background: "none", border: "none", color: "blue", textDecoration: "underline", padding: 0 }}
-          >
-            Forgot Password?
-          </button>
-        </p>
+          <div className="auth-links">
+            <button
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="forgot-password-btn"
+            >
+              Forgot your password?
+            </button>
+            
+            <div className="signup-link">
+              Don't have an account? <Link to="/signup" className="link">Sign Up</Link>
+            </div>
+          </div>
+        </div>
 
-        <p>
-          Don't have an account? <Link to="/signup">Sign Up</Link>
-        </p>
+        <div className="auth-features">
+          <div className="feature">
+            <div className="feature-icon">👨‍🏫</div>
+            <span>For Lecturers</span>
+          </div>
+          <div className="feature">
+            <div className="feature-icon">👨‍🎓</div>
+            <span>For Students</span>
+          </div>
+          <div className="feature">
+            <div className="feature-icon">⚡</div>
+            <span>Fast & Secure</span>
+          </div>
+        </div>
       </div>
     </div>
   );
